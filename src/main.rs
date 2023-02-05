@@ -1,4 +1,5 @@
 #![feature(ptr_metadata)]
+#![feature(unsize)]
 mod game_trait_map;
 
 use game_trait_map::*;
@@ -14,9 +15,6 @@ trait Collider {
 trait OtherTrait {
   fn hello(&self);
 }
-
-export_trait!(MyTrait);
-export_trait!(Collider);
 
 struct MyEntity {
   val: u32,

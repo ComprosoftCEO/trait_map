@@ -1,7 +1,8 @@
 use std::any::TypeId;
 use std::collections::{HashMap, HashSet};
+use std::marker::Unsize;
 use std::mem::transmute;
-use std::ptr::{self, Pointee};
+use std::ptr::{self, DynMetadata, Pointee};
 
 pub trait Entity {}
 
@@ -36,11 +37,12 @@ impl GameTraitMap {
     });
   }
 
-  pub fn get_entities<T>(&self) -> Vec<&T>
+  pub fn get_entities<Trait>(&self) -> Vec<&Trait>
   where
-    T: ?Sized + 'static,
+    // Ensure that Trait is a valid "dyn Trait" object
+    Trait: ?Sized + Pointee<Metadata = DynMetadata<Trait>> + 'static,
   {
-    let type_id = TypeId::of::<T>();
+    let type_id = TypeId::of::<Trait>();
     self
       .traits
       .get(&type_id)
@@ -48,7 +50,7 @@ impl GameTraitMap {
         traits
           .iter()
           .map(|(p_ptr, p_metadata)| unsafe {
-            let metadata: <T as Pointee>::Metadata = *transmute::<_, &<T as Pointee>::Metadata>(&**p_metadata);
+            let metadata: <Trait as Pointee>::Metadata = *transmute::<_, &<Trait as Pointee>::Metadata>(&**p_metadata);
             &*ptr::from_raw_parts(*p_ptr, metadata)
           })
           .collect()
@@ -68,14 +70,15 @@ impl Drop for GameTraitMap {
 }
 
 impl<'a, E> Context<'a, E> {
-  pub fn add_trait<'b, T>(&mut self) -> &mut Self
+  pub fn add_trait<Trait>(&mut self) -> &mut Self
   where
-    T: ?Sized + 'static,
-    E: 'b,
-    &'b E: Into<&'b T>,
+    // Ensure that Trait is a valid "dyn Trait" object
+    Trait: ?Sized + Pointee<Metadata = DynMetadata<Trait>> + 'static,
+    // Allows us to cast from &T to &dyn Trait using "as"
+    E: Unsize<Trait>,
   {
-    let type_id = TypeId::of::<T>();
-    let pointer: *const T = unsafe { &*self.pointer }.into();
+    let type_id = TypeId::of::<Trait>();
+    let pointer: *const Trait = self.pointer as *const Trait;
 
     let (pointer, metadata) = pointer.to_raw_parts();
     let metadata = unsafe { transmute(Box::new(metadata)) };
@@ -86,19 +89,3 @@ impl<'a, E> Context<'a, E> {
     self
   }
 }
-
-macro_rules! export_trait {
-  ($trait:ident) => {
-    impl<'a, 'b, T> From<&'a T> for &'b dyn $trait
-    where
-      T: $trait,
-      'a: 'b,
-    {
-      fn from(value: &'a T) -> Self {
-        value
-      }
-    }
-  };
-}
-
-pub(crate) use export_trait;
