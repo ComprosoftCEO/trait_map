@@ -30,12 +30,19 @@ impl TraitMapEntry for MyEntity {
 
     // .add_trait::<dyn OtherTrait>() -- Compile-time error
   }
+
+  fn on_update<'a>(&mut self, context: Context<'a>) {
+    context
+      .downcast::<Self>()
+      .remove_trait::<dyn MyTrait>()
+      .remove_trait::<dyn MyTrait>();
+  }
 }
 
 impl MyTrait for MyEntity {
   fn test(&self, map: &TraitMap, recurse: bool) -> u32 {
     if recurse {
-      for (_, test) in map.search_entities::<dyn MyTrait>() {
+      for (_, test) in map.get_entities::<dyn MyTrait>() {
         println!("Recurse: {}", test.test(map, false));
       }
     }
@@ -72,12 +79,17 @@ fn main() {
   map.add_entry(MyEntity { val: 7 });
   map.add_entry(MyEntityTwo { a: 9 });
 
-  let entries = map.all_entries().keys().cloned().collect::<Vec<_>>();
-  for entry_id in entries {
-    map.try_take_entry_downcast::<MyEntity>(entry_id);
+  for (entry_id, test) in map.get_entities::<dyn MyTrait>() {
+    println!("{:?}", entry_id);
   }
 
-  for (entry_id, test) in map.all_entries_mut() {
+  let entries = map.all_entries().keys().cloned().collect::<Vec<_>>();
+  for entry_id in entries {
+    map.update_entry(entry_id);
+  }
+  println!("--");
+
+  for (entry_id, test) in map.get_entities::<dyn MyTrait>() {
     println!("{:?}", entry_id);
   }
 }

@@ -11,7 +11,7 @@ pub trait TraitMapEntry: 'static {
   fn on_create<'a>(&mut self, context: Context<'a>);
 
   // Default implementation does nothing
-  fn on_update<'a>(&mut self, _context: Context<'a>) {}
+  fn on_update<'a>(&mut self, context: Context<'a>) {}
 }
 
 /// Unique ID for each entry in the trait map
@@ -133,17 +133,17 @@ impl TraitMap {
 
   /// Get the list of all entries as an immutable reference
   pub fn all_entries(&self) -> HashMap<EntryID, &dyn TraitMapEntry> {
-    self.search_entities()
+    self.get_entities()
   }
 
   /// Get the list of all entries as a mutable reference
   pub fn all_entries_mut(&mut self) -> HashMap<EntryID, &mut dyn TraitMapEntry> {
-    self.search_entities_mut()
+    self.get_entities_mut()
   }
 
   /// Search for all entries that are registered with a specific trait.
   /// Returns an immutable reference.
-  pub fn search_entities<Trait>(&self) -> HashMap<EntryID, &Trait>
+  pub fn get_entities<Trait>(&self) -> HashMap<EntryID, &Trait>
   where
     // Ensure that Trait is a valid "dyn Trait" object
     Trait: ?Sized + Pointee<Metadata = DynMetadata<Trait>> + 'static,
@@ -167,7 +167,7 @@ impl TraitMap {
 
   /// Search for all entries that are registered with a specific trait
   /// Returns a mutable reference.
-  pub fn search_entities_mut<Trait>(&mut self) -> HashMap<EntryID, &mut Trait>
+  pub fn get_entities_mut<Trait>(&mut self) -> HashMap<EntryID, &mut Trait>
   where
     // Ensure that Trait is a valid "dyn Trait" object
     Trait: ?Sized + Pointee<Metadata = DynMetadata<Trait>> + 'static,
@@ -221,6 +221,8 @@ impl TraitMap {
       })
   }
 
+  /// Get a specific entry and downcast to an immutable reference of its concrete type.
+  ///
   /// Returns `None` if the entry does not exist.
   /// Panics if the downcast is invalid.
   pub fn get_entry_downcast<T: TraitMapEntry + 'static>(&self, entry_id: EntryID) -> Option<&T> {
@@ -229,6 +231,8 @@ impl TraitMap {
       .map(|entry| entry.expect("Invalid downcast"))
   }
 
+  /// Get a specific entry and downcast to a mutable reference of its concrete type.
+  ///
   /// Returns `None` if the entry does not exist.
   /// Panics if the downcast is invalid.
   pub fn get_entry_downcast_mut<T: TraitMapEntry + 'static>(&mut self, entry_id: EntryID) -> Option<&mut T> {
@@ -237,6 +241,8 @@ impl TraitMap {
       .map(|entry| entry.expect("Invalid downcast"))
   }
 
+  /// Remove an entry from the map as its concrete type.
+  ///
   /// Returns `None` if the entry does not exist.
   /// Panics if the downcast is invalid.
   pub fn take_entry_downcast<T: TraitMapEntry + 'static>(&mut self, entry_id: EntryID) -> Option<T> {
@@ -245,6 +251,8 @@ impl TraitMap {
       .map(|entry| entry.expect("Invalid downcast"))
   }
 
+  /// Get a specific entry and downcast to an immutable reference of its concrete type.
+  ///
   /// Returns `None` if the entry does not exist.
   /// Returns `Some(None)` if the downcast is invalid.
   pub fn try_get_entry_downcast<T: TraitMapEntry + 'static>(&self, entry_id: EntryID) -> Option<Option<&T>> {
@@ -259,6 +267,8 @@ impl TraitMap {
     }))
   }
 
+  /// Get a specific entry and downcast to a mutable reference of its concrete type.
+  ///
   /// Returns `None` if the entry does not exist.
   /// Returns `Some(None)` if the downcast is invalid.
   pub fn try_get_entry_downcast_mut<T: TraitMapEntry + 'static>(
@@ -276,6 +286,9 @@ impl TraitMap {
     }))
   }
 
+  /// Remove an entry from the map as its concrete type.
+  /// If the downcast is invalid, the entry will not be removed from the map.
+  ///
   /// Returns `None` if the entry does not exist.
   /// Returns `Some(None)` if the downcast is invalid.
   pub fn try_take_entry_downcast<T: TraitMapEntry + 'static>(&mut self, entry_id: EntryID) -> Option<Option<T>> {
