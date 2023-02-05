@@ -72,13 +72,10 @@ fn main() {
   map.add_entry(MyEntity { val: 7 });
   map.add_entry(MyEntityTwo { a: 9 });
 
-  let mut first = None;
-  for (entry_id, test) in map.all_entries_mut() {
-    if first.is_none() {
-      first = Some(entry_id);
-    }
+  let entries = map.all_entries().keys().cloned().collect::<Vec<_>>();
+  for entry_id in entries {
+    map.try_take_entry_downcast::<MyEntity>(entry_id);
   }
-  map.remove_entry(first.unwrap());
 
   for (entry_id, test) in map.all_entries_mut() {
     println!("{:?}", entry_id);
