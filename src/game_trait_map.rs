@@ -31,10 +31,15 @@ impl GameTraitMap {
     let entity_trait = entity_pointer as *mut dyn Entity;
     self.entities.insert(entity_trait);
 
-    entity_pointer.on_create(Context {
+    // All entities get the dyn entity trait by default
+    let mut context = Context {
       pointer: entity_pointer,
       traits: &mut self.traits,
-    });
+    };
+    context.add_trait::<dyn Entity>();
+
+    // Add any other traits as required
+    entity_pointer.on_create(context);
   }
 
   pub fn get_entities<Trait>(&self) -> Vec<&Trait>
