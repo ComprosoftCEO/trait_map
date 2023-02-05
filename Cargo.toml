@@ -1,7 +1,14 @@
 [package]
 name = "trait-map"
+description = "Rust map for dynamic trait storage and references"
 version = "0.1.0"
 edition = "2021"
 authors = ["Bryan McClain <bamcclain10@gmail.com>"]
+readme = "README.md"
+repository = "https://github.com/ComprosoftCEO/trait_map"
+documentation = "https://docs.rs/trait_map"
+license = "GPL-3.0-or-later"
+keywords = ["map", "dynamic", "trait", "downcast"]
+categories = ["data-structures"]
 
 [dependencies]
