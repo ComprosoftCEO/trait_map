@@ -2,7 +2,7 @@ use std::any::TypeId;
 use std::collections::HashMap;
 use std::marker::Unsize;
 use std::mem::transmute;
-use std::ptr::{self, DynMetadata, Pointee};
+use std::ptr::{self, DynMetadata, NonNull, Pointee};
 use std::rc::Rc;
 
 /// Any type to be stored in a TraitMap must implement this trait
@@ -15,11 +15,11 @@ pub trait TraitMapEntry: 'static {
 
 /// Unique ID for each entry in the trait map
 #[derive(Debug, Clone, Copy, Eq, PartialEq, Hash)]
-pub struct EntryID(*mut ());
+pub struct EntryID(NonNull<()>);
 
 // Maps from the raw *mut T to the boxed metadata associated with the trait
 type BoxedMetadata = Rc<*const ()>;
-type PointerMetadataMap = HashMap<*mut (), BoxedMetadata>;
+type PointerMetadataMap = HashMap<NonNull<()>, BoxedMetadata>;
 
 /// Map structure that allows types to be dynamically searched by trait
 #[derive(Debug, Default)]
@@ -30,14 +30,14 @@ pub struct TraitMap {
 /// Must be cast to a `TypeContext` using the `.downcast()` method.
 #[derive(Debug)]
 pub struct Context<'a> {
-  pointer: *mut (),
+  pointer: NonNull<()>,
   type_id: TypeId,
   traits: &'a mut HashMap<TypeId, PointerMetadataMap>,
 }
 
 #[derive(Debug)]
 pub struct TypedContext<'a, E: ?Sized> {
-  pointer: *mut E,
+  pointer: NonNull<E>,
   traits: &'a mut HashMap<TypeId, PointerMetadataMap>,
 }
 
@@ -53,7 +53,7 @@ impl TraitMap {
     // All entities get the dyn entity trait by default
     //  This stores the unique ownership of the object
     let mut context = TypedContext {
-      pointer: entry_pointer,
+      pointer: entry_pointer.into(),
       traits: &mut self.traits,
     };
     context.add_trait::<dyn TraitMapEntry>();
@@ -61,10 +61,11 @@ impl TraitMap {
     // Add any other traits as required
     entry_pointer.on_create(context.upcast());
 
-    EntryID((entry_pointer as *mut Entry).to_raw_parts().0)
+    EntryID(unsafe { NonNull::new_unchecked((entry_pointer as *mut Entry).to_raw_parts().0) })
   }
 
   /// Remove an entry from the map using its unique ID.
+  /// Returns `true` if the entry was removed, or `false` otherwise.
   pub fn remove_entry(&mut self, entry_id: EntryID) -> bool {
     let mut removed = false;
 
@@ -74,7 +75,7 @@ impl TraitMap {
       .get(&TypeId::of::<dyn TraitMapEntry>())
       .and_then(|traits| traits.get_key_value(&entry_id.0))
     {
-      drop(unsafe { PointerWithMetadata::new(*pointer, metadata.clone()).into_boxed::<dyn TraitMapEntry>() });
+      drop(unsafe { PointerWithMetadata::new(pointer.as_ptr(), metadata.clone()).into_boxed::<dyn TraitMapEntry>() });
       removed = true;
     }
 
@@ -112,7 +113,7 @@ impl TraitMap {
           .iter()
           .map(|(p_ptr, p_metadata)| {
             (EntryID(*p_ptr), unsafe {
-              PointerWithMetadata::new(*p_ptr, p_metadata.clone()).reconstruct_ref()
+              PointerWithMetadata::new(p_ptr.as_ptr(), p_metadata.clone()).reconstruct_ref()
             })
           })
           .collect()
@@ -135,7 +136,7 @@ impl TraitMap {
           .iter()
           .map(|(p_ptr, p_metadata)| {
             (EntryID(*p_ptr), unsafe {
-              PointerWithMetadata::new(*p_ptr, p_metadata.clone()).reconstruct_mut()
+              PointerWithMetadata::new(p_ptr.as_ptr(), p_metadata.clone()).reconstruct_mut()
             })
           })
           .collect()
@@ -153,7 +154,9 @@ impl TraitMap {
       .traits
       .get(&TypeId::of::<Trait>())
       .and_then(|traits| traits.get_key_value(&entry_id.0))
-      .map(|(p_ptr, p_metadata)| unsafe { PointerWithMetadata::new(*p_ptr, p_metadata.clone()).reconstruct_ref() })
+      .map(|(p_ptr, p_metadata)| unsafe {
+        PointerWithMetadata::new(p_ptr.as_ptr(), p_metadata.clone()).reconstruct_ref()
+      })
   }
 
   /// Get a specific entry that implements a trait as a mutable reference
@@ -166,7 +169,9 @@ impl TraitMap {
       .traits
       .get(&TypeId::of::<Trait>())
       .and_then(|traits| traits.get_key_value(&entry_id.0))
-      .map(|(p_ptr, p_metadata)| unsafe { PointerWithMetadata::new(*p_ptr, p_metadata.clone()).reconstruct_mut() })
+      .map(|(p_ptr, p_metadata)| unsafe {
+        PointerWithMetadata::new(p_ptr.as_ptr(), p_metadata.clone()).reconstruct_mut()
+      })
   }
 }
 
@@ -174,7 +179,7 @@ impl Drop for TraitMap {
   fn drop(&mut self) {
     if let Some(traits) = self.traits.get(&TypeId::of::<dyn TraitMapEntry>()) {
       for (p_ptr, p_metadata) in traits {
-        drop(unsafe { PointerWithMetadata::new(*p_ptr, p_metadata.clone()).into_boxed::<dyn TraitMapEntry>() })
+        drop(unsafe { PointerWithMetadata::new(p_ptr.as_ptr(), p_metadata.clone()).into_boxed::<dyn TraitMapEntry>() })
       }
     }
   }
@@ -283,7 +288,7 @@ impl<'a> Context<'a> {
       Err(self)
     } else {
       Ok(TypedContext {
-        pointer: self.pointer as *mut T,
+        pointer: self.pointer.cast(),
         traits: self.traits,
       })
     }
@@ -297,7 +302,7 @@ where
   /// Convert back into an untyped context
   pub fn upcast(self) -> Context<'a> {
     Context {
-      pointer: self.pointer as *mut (),
+      pointer: self.pointer.cast(),
       type_id: TypeId::of::<Entry>(),
       traits: self.traits,
     }
@@ -315,10 +320,10 @@ where
     let PointerWithMetadata {
       pointer,
       boxed_metadata,
-    } = PointerWithMetadata::from_trait_pointer::<_, Trait>(self.pointer);
+    } = PointerWithMetadata::from_trait_pointer::<Entry, Trait>(self.pointer.as_ptr());
 
     let traits = self.traits.entry(type_id).or_default();
-    traits.insert(pointer, boxed_metadata);
+    traits.insert(unsafe { NonNull::new_unchecked(pointer) }, boxed_metadata);
 
     self
   }
@@ -332,10 +337,10 @@ where
     Entry: Unsize<Trait>,
   {
     let type_id = TypeId::of::<Trait>();
-    let (pointer, _) = (self.pointer as *mut Trait).to_raw_parts();
+    let (pointer, _) = (self.pointer.as_ptr() as *mut Trait).to_raw_parts();
 
     if let Some(traits) = self.traits.get_mut(&type_id) {
-      traits.remove(&pointer);
+      traits.remove(&unsafe { NonNull::new_unchecked(pointer) });
     }
 
     self

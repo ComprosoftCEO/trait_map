@@ -2,8 +2,6 @@
 #![feature(unsize)]
 mod trait_map;
 
-use std::os::unix::prelude::DirEntryExt;
-
 use trait_map::*;
 
 trait MyTrait {
@@ -74,12 +72,15 @@ fn main() {
   map.add_entry(MyEntity { val: 7 });
   map.add_entry(MyEntityTwo { a: 9 });
 
-  let mut first = true;
+  let mut first = None;
+  for (entry_id, test) in map.all_entries_mut() {
+    if first.is_none() {
+      first = Some(entry_id);
+    }
+  }
+  map.remove_entry(first.unwrap());
+
   for (entry_id, test) in map.all_entries_mut() {
     println!("{:?}", entry_id);
-  }
-
-  for (_, test) in map.search_entities_mut::<dyn TraitMapEntry>() {
-    // println!("{}", test.test(&map, true));
   }
 }
