@@ -165,6 +165,9 @@ type BoxedMetadata = Rc<*const ()>;
 type PointerMetadataMap = HashMap<NonNull<()>, BoxedMetadata>;
 
 /// Map structure that allows types to be dynamically queries by trait.
+///
+/// Values must implement the [TraitMapEntry] trait to be added to the map.
+/// The [`on_create()`](TraitMapEntry::on_create) method should be used to specify which traits are exposed to the map.
 #[derive(Debug, Default)]
 pub struct TraitMap {
   traits: RefCell<HashMap<TypeId, PointerMetadataMap>>,
@@ -716,7 +719,21 @@ where
     }
   }
 
-  /// Register a trait to be saved into the type map
+  /// Add a trait to the type map.
+  /// This method is idempotent, so adding a trait multiple times will only register it once.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// impl TraitMapEntry for MyStruct {
+  ///   fn on_create<'a>(&mut self, context: Context<'a>) {
+  ///     context
+  ///      .downcast::<Self>()
+  ///      .add_trait::<dyn ExampleTrait>()
+  ///      .add_trait::<dyn ExampleTraitTwo>();
+  ///   }
+  /// }
+  /// ```
   pub fn add_trait<Trait>(&mut self) -> &mut Self
   where
     // Ensure that Trait is a valid "dyn Trait" object
@@ -736,7 +753,23 @@ where
     self
   }
 
-  /// Unregister a trait from the type map
+  /// Remove a trait from the type map.
+  /// This method is idempotent, so removing a trait multiple times is a no-op.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// impl TraitMapEntry for MyStruct {
+  ///   // ...
+  ///
+  ///   fn on_update<'a>(&mut self, context: Context<'a>) {
+  ///     context
+  ///      .downcast::<Self>()
+  ///      .remove_trait::<dyn ExampleTrait>()
+  ///      .remove_trait::<dyn ExampleTraitTwo>();
+  ///   }
+  /// }
+  /// ```
   pub fn remove_trait<Trait>(&mut self) -> &mut Self
   where
     // Ensure that Trait is a valid "dyn Trait" object
@@ -752,5 +785,38 @@ where
     }
 
     self
+  }
+
+  /// Test if the trait is registered with the type map.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// impl TraitMapEntry for MyStruct {
+  ///   // ...
+  ///
+  ///   fn on_update<'a>(&mut self, context: Context<'a>) {
+  ///     let mut context = context.downcast::<Self>();
+  ///     if !context.has_trait::<dyn ExampleTrait>() {
+  ///       context.add_trait<dyn ExampleTrait>();
+  ///     }
+  ///   }
+  /// }
+  /// ```
+  pub fn has_trait<Trait>(&self) -> bool
+  where
+    // Ensure that Trait is a valid "dyn Trait" object
+    Trait: ?Sized + Pointee<Metadata = DynMetadata<Trait>> + 'static,
+    // Allows us to cast from &T to &dyn Trait using "as"
+    Entry: Unsize<Trait>,
+  {
+    let type_id = TypeId::of::<Trait>();
+    let (pointer, _) = (self.pointer.as_ptr() as *mut Trait).to_raw_parts();
+
+    self
+      .traits
+      .get(&type_id)
+      .map(|traits| traits.contains_key(&unsafe { NonNull::new_unchecked(pointer) }))
+      .unwrap_or(false)
   }
 }
