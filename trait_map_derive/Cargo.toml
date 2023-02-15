@@ -1,0 +1,11 @@
+[package]
+name = "trait_map_derive"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+quote = "1.0.23"
+syn = "1.0.107"
+
+[lib]
+proc-macro = true

@@ -107,6 +107,10 @@ use std::marker::Unsize;
 use std::mem::transmute;
 use std::ptr::{self, DynMetadata, NonNull, Pointee};
 
+#[cfg(any(trait_map_derive, test))]
+#[allow(unused_imports)]
+use trait_map_derive::TraitMapEntry;
+
 /// Rust type that can be stored inside of a [TraitMap].
 pub trait TraitMapEntry: 'static {
   /// Called when the type is first added to the [TraitMap].
@@ -822,6 +826,9 @@ where
 mod test {
   use super::*;
 
+  // Required because we are deriving in the same crate that TraitMapEntry is defined
+  extern crate self as trait_map;
+
   trait TraitOne {
     fn add_with_offset(&self, a: u32, b: u32) -> u32;
     fn mul_with_mut(&mut self, a: u32, b: u32) -> u32;
@@ -876,6 +883,12 @@ mod test {
     }
   }
 
+  #[derive(TraitMapEntry)]
+  #[trait_map(TraitTwo)]
+  struct DeriveTest {
+    output: Box<f64>,
+  }
+
   impl TraitOne for OneAndTwo {
     fn add_with_offset(&self, a: u32, b: u32) -> u32 {
       a + b + self.offset
@@ -896,6 +909,12 @@ mod test {
   impl TraitTwo for TwoOnly {
     fn compute(&self) -> f64 {
       self.compute * self.compute
+    }
+  }
+
+  impl TraitTwo for DeriveTest {
+    fn compute(&self) -> f64 {
+      *self.output
     }
   }
 

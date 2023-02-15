@@ -1,4 +1,5 @@
 [workspace] 
 members = [
-  "trait_map"
+  "trait_map",
+  "trait_map_derive",
 ]
