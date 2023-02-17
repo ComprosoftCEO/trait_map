@@ -5,6 +5,7 @@ trait MyTrait {
 }
 
 #[derive(TraitMapEntry)]
+#[trait_map]
 #[trait_map(MyTrait, "literal", true, value = "5")]
 struct MyStruct {
   value: u32,

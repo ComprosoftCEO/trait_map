@@ -4,6 +4,7 @@ trait MyTrait {
   fn test(&self) -> u32;
 }
 
+// Allowed but will give a compiler warning on nightly
 #[derive(TraitMapEntry)]
 #[trait_map(MyTrait, MyTrait)]
 #[trait_map(MyTrait)]

@@ -5,7 +5,10 @@ edition = "2021"
 
 [dependencies]
 quote = "1.0.23"
-syn = "1.0.107"
+syn = { version = "1.0.107", features = ["extra-traits"] }
+
+[build-dependencies]
+rustc_version = "0.2"
 
 [dev-dependencies]
 trybuild = "1.0"

@@ -1,3 +1,8 @@
+// Allow for compiler warnings if building on nightly
+#![cfg_attr(nightly, feature(proc_macro_diagnostic))]
+
+use std::collections::HashSet;
+
 use ctxt::Ctxt;
 use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
@@ -11,26 +16,66 @@ pub fn derive_trait_map_entry(input: proc_macro::TokenStream) -> proc_macro::Tok
 
   let name = derive_input.ident;
 
+  // Parse any generics on the struct and add T: 'static trait bounds
   let generics = add_trait_bounds(derive_input.generics);
   let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
+  // Parse the struct attributes to get the trait paths from attributes:
+  //  #[trait_map(TraitOne, TraitTwo)]  =>  vec![TraitOne, TraitTwo]
   let mut ctx = Ctxt::new();
   let traits_to_include: Vec<_> = parse_attributes(&mut ctx, derive_input.attrs)
     .into_iter()
     .filter_map(|attr| parse_attribute_trait(&mut ctx, attr))
     .collect();
 
+  // Converts from `#[trait_map(TraitOne)]` into `.add_trait::<dyn TraitOne>()`
+  //
+  // Small optimization: filter duplicate traits.
+  //  Although calls to `.add_trait()` are idempotent, it doesn't hurt to optimize.
+  //
+  // One limitation: macros cannot distinguish imported traits based on type.
+  //  So `MyTrait` and `some::path::MyTrait` are not filtered even if they both
+  //  refer to the same type. This case should be rare anyways.
+  let mut found_traits = HashSet::new();
+  let mut duplicate_traits = Vec::new();
   let functions: Vec<_> = traits_to_include
     .into_iter()
-    .map(|t| {
-      let span = t.span();
-      quote_spanned!(span => .add_trait::<dyn #t>())
+    .filter_map(|t| {
+      if found_traits.contains(&t) {
+        duplicate_traits.push(t);
+        None
+      } else {
+        let span = t.span();
+        let function = quote_spanned!(span => .add_trait::<dyn #t>());
+        found_traits.insert(t);
+        Some(function)
+      }
     })
     .collect();
 
+  // Test for any compile errors
   if let Err(errors) = ctx.check() {
     let compile_errors = errors.iter().map(syn::Error::to_compile_error);
     return quote!(#(#compile_errors)*).into();
+  }
+
+  // If building on nightly, show helpful compiler warnings
+  #[cfg(nightly)]
+  {
+    if found_traits.len() == 0 {
+      proc_macro::Span::call_site()
+        .warning("no traits specified for map")
+        .help("specify one or more traits using #[trait_map(TraitOne, TraitTwo, ...)] attribute")
+        .emit();
+    }
+
+    for t in duplicate_traits {
+      t.span()
+        .unwrap()
+        .warning("duplicate trait specified")
+        .note("including the same trait multiple times is a no-op")
+        .emit();
+    }
   }
 
   quote! {

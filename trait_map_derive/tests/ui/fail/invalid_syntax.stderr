@@ -1,17 +1,23 @@
-error: unexpected attribute, please specify a valid trait
- --> tests/ui/fail/invalid_syntax.rs:8:22
+error: expected #[trait_map(...)]
+ --> tests/ui/fail/invalid_syntax.rs:8:3
   |
-8 | #[trait_map(MyTrait, "literal", true, value = "5")]
+8 | #[trait_map]
+  |   ^^^^^^^^^
+
+error: unexpected attribute, please specify a valid trait
+ --> tests/ui/fail/invalid_syntax.rs:9:22
+  |
+9 | #[trait_map(MyTrait, "literal", true, value = "5")]
   |                      ^^^^^^^^^
 
 error: unexpected attribute, please specify a valid trait
- --> tests/ui/fail/invalid_syntax.rs:8:33
+ --> tests/ui/fail/invalid_syntax.rs:9:33
   |
-8 | #[trait_map(MyTrait, "literal", true, value = "5")]
+9 | #[trait_map(MyTrait, "literal", true, value = "5")]
   |                                 ^^^^
 
 error: unexpected attribute, please specify a valid trait
- --> tests/ui/fail/invalid_syntax.rs:8:39
+ --> tests/ui/fail/invalid_syntax.rs:9:39
   |
-8 | #[trait_map(MyTrait, "literal", true, value = "5")]
+9 | #[trait_map(MyTrait, "literal", true, value = "5")]
   |                                       ^^^^^^^^^^^
