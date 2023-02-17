@@ -1,5 +1,5 @@
 [package]
-name = "trait_map_derive"
+name = "trait-map-derive"
 description = "Derive the TraitMapEntry trait for trait_map crate"
 version = "0.1.0"
 edition = "2021"
@@ -20,7 +20,7 @@ rustc_version = "0.2"
 
 [dev-dependencies]
 trybuild = "1.0"
-trait_map = { version = "0.3.0", path = "../trait_map", features = ["derive"] }
+trait-map = { path = "../trait_map", features = ["derive"] }
 
 [lib]
 proc-macro = true

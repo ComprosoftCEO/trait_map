@@ -126,20 +126,20 @@ dependencies = [
 ]
 
 [[package]]
-name = "trait_map"
+name = "trait-map"
 version = "0.3.0"
 dependencies = [
- "trait_map_derive",
+ "trait-map-derive",
 ]
 
 [[package]]
-name = "trait_map_derive"
+name = "trait-map-derive"
 version = "0.1.0"
 dependencies = [
  "quote",
  "rustc_version",
  "syn",
- "trait_map",
+ "trait-map",
  "trybuild",
 ]
 
