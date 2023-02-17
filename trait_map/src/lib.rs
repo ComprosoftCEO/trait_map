@@ -107,9 +107,9 @@ use std::marker::Unsize;
 use std::mem::transmute;
 use std::ptr::{self, DynMetadata, NonNull, Pointee};
 
-#[cfg(any(trait_map_derive, test))]
+#[cfg(any(feature = "trait_map_derive", test))]
 #[allow(unused_imports)]
-use trait_map_derive::TraitMapEntry;
+pub use trait_map_derive::TraitMapEntry;
 
 /// Rust type that can be stored inside of a [TraitMap].
 pub trait TraitMapEntry: 'static {
@@ -213,7 +213,7 @@ impl TraitMap {
     // Save the concrete type for downcasting later
     self.concrete_types.insert(entry_id, TypeId::of::<Entry>());
 
-    // All entities get the dyn entity trait by default
+    // All entries get the dyn entry trait by default
     //  This stores the unique ownership of the object
     let mut context = TypedContext {
       entry_id,
@@ -293,12 +293,12 @@ impl TraitMap {
 
   /// Get the list of all entries as an immutable reference
   pub fn all_entries(&self) -> HashMap<EntryID, &dyn TraitMapEntry> {
-    self.get_entities()
+    self.get_entries()
   }
 
   /// Get the list of all entries as a mutable reference
   pub fn all_entries_mut(&mut self) -> HashMap<EntryID, &mut dyn TraitMapEntry> {
-    self.get_entities_mut()
+    self.get_entries_mut()
   }
 
   /// Returns all entries that are registered with a specific trait.
@@ -311,7 +311,7 @@ impl TraitMap {
   ///   entry.trait_method(1, "hello");
   /// }
   /// ```
-  pub fn get_entities<Trait>(&self) -> HashMap<EntryID, &Trait>
+  pub fn get_entries<Trait>(&self) -> HashMap<EntryID, &Trait>
   where
     // Ensure that Trait is a valid "dyn Trait" object
     Trait: ?Sized + Pointee<Metadata = DynMetadata<Trait>> + 'static,
@@ -339,7 +339,7 @@ impl TraitMap {
   ///   entry.trait_method_mut("hello");
   /// }
   /// ```
-  pub fn get_entities_mut<Trait>(&mut self) -> HashMap<EntryID, &mut Trait>
+  pub fn get_entries_mut<Trait>(&mut self) -> HashMap<EntryID, &mut Trait>
   where
     // Ensure that Trait is a valid "dyn Trait" object
     Trait: ?Sized + Pointee<Metadata = DynMetadata<Trait>> + 'static,
@@ -959,7 +959,7 @@ mod test {
     assert_eq!(map.all_entries().len(), 2);
 
     // Test the first trait
-    let entries = map.get_entities_mut::<dyn TraitOne>();
+    let entries = map.get_entries_mut::<dyn TraitOne>();
     assert_eq!(entries.len(), 1);
     for (entry_id, entry) in entries.into_iter() {
       assert_eq!(entry_id, entry_one_id);
@@ -969,7 +969,7 @@ mod test {
     }
 
     // Test the second trait
-    let entries = map.get_entities::<dyn TraitTwo>();
+    let entries = map.get_entries::<dyn TraitTwo>();
     let entry_one = entries.get(&entry_one_id);
     let entry_two = entries.get(&entry_two_id);
     assert_eq!(entries.len(), 2);
@@ -988,13 +988,13 @@ mod test {
     }));
     let entry_id = map.add_entry(entry);
 
-    assert_eq!(map.get_entities::<dyn TraitOne>().len(), 1);
-    assert_eq!(map.get_entities::<dyn TraitTwo>().len(), 1);
+    assert_eq!(map.get_entries::<dyn TraitOne>().len(), 1);
+    assert_eq!(map.get_entries::<dyn TraitTwo>().len(), 1);
 
     map.update_entry(entry_id);
 
-    assert_eq!(map.get_entities::<dyn TraitOne>().len(), 0);
-    assert_eq!(map.get_entities::<dyn TraitTwo>().len(), 1);
+    assert_eq!(map.get_entries::<dyn TraitOne>().len(), 0);
+    assert_eq!(map.get_entries::<dyn TraitTwo>().len(), 1);
   }
 
   #[test]
@@ -1004,21 +1004,21 @@ mod test {
     let entry_two_id = map.add_entry(TwoOnly::new(20.0));
     let entry_three_id = map.add_entry(TwoOnly::new(30.0));
 
-    assert_eq!(map.get_entities::<dyn TraitTwo>().len(), 3);
+    assert_eq!(map.get_entries::<dyn TraitTwo>().len(), 3);
     assert!(map.get_entry::<dyn TraitTwo>(entry_one_id).is_some());
     assert!(map.get_entry::<dyn TraitTwo>(entry_two_id).is_some());
     assert!(map.get_entry::<dyn TraitTwo>(entry_three_id).is_some());
 
     map.remove_entry(entry_two_id);
 
-    assert_eq!(map.get_entities::<dyn TraitTwo>().len(), 2);
+    assert_eq!(map.get_entries::<dyn TraitTwo>().len(), 2);
     assert!(map.get_entry::<dyn TraitTwo>(entry_one_id).is_some());
     assert!(map.get_entry::<dyn TraitTwo>(entry_two_id).is_none());
     assert!(map.get_entry::<dyn TraitTwo>(entry_three_id).is_some());
 
     let entry_four_id = map.add_entry(TwoOnly::new(40.0));
 
-    assert_eq!(map.get_entities::<dyn TraitTwo>().len(), 3);
+    assert_eq!(map.get_entries::<dyn TraitTwo>().len(), 3);
     assert!(map.get_entry::<dyn TraitTwo>(entry_one_id).is_some());
     assert!(map.get_entry::<dyn TraitTwo>(entry_two_id).is_none());
     assert!(map.get_entry::<dyn TraitTwo>(entry_three_id).is_some());
@@ -1092,13 +1092,13 @@ mod test {
     map.add_entry(TwoOnly::new(1.5));
 
     assert_eq!(map.all_entries().len(), 2);
-    assert_eq!(map.get_entities::<dyn TraitOne>().len(), 1);
-    assert_eq!(map.get_entities::<dyn TraitTwo>().len(), 2);
+    assert_eq!(map.get_entries::<dyn TraitOne>().len(), 1);
+    assert_eq!(map.get_entries::<dyn TraitTwo>().len(), 2);
 
     map.update_entry(entry_id);
 
     assert_eq!(map.all_entries().len(), 2);
-    assert_eq!(map.get_entities::<dyn TraitOne>().len(), 0);
-    assert_eq!(map.get_entities::<dyn TraitTwo>().len(), 2);
+    assert_eq!(map.get_entries::<dyn TraitOne>().len(), 0);
+    assert_eq!(map.get_entries::<dyn TraitTwo>().len(), 2);
   }
 }
