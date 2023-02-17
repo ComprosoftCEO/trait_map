@@ -150,7 +150,8 @@ pub use trait_map_derive::TraitMapEntry;
 
 /// Rust type that can be stored inside of a [TraitMap].
 ///
-/// If the `derive` feature flag is enabled, you can derive this trait
+/// If the `derive` feature flag is enabled, you can derive this trait on types.
+/// See the [crate documentation](crate).
 pub trait TraitMapEntry: 'static {
   /// Called when the type is first added to the [TraitMap].
   /// This should be use to specify which implemented traits are exposed to the map.

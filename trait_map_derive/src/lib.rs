@@ -19,43 +19,7 @@ mod ctxt;
 
 /// Derive macro for the [TraitMapEntry](https://docs.rs/trait-map/latest/trait_map/trait.TraitMapEntry.html) trait.
 ///
-/// You must specify which traits to expose to the map using one or more `#[trait_map(...)]` attributes.
-/// When compiling on nightly, it uses the [`proc_macro_diagnostic`](https://doc.rust-lang.org/beta/unstable-book/library-features/proc-macro-diagnostic.html) feature to emit helpful compiler warnings.
-///
-/// As a small optimization, duplicate traits will automatically be removed when generating the trait implementation
-/// _(even though calls to [.add_trait()](https://docs.rs/trait-map/latest/trait_map/struct.TypedContext.html#method.add_trait) are idempotent)_.
-/// However, macros cannot distinguish between types aliased by path, so doing something like `#[trait_map(MyTrait, some::path::MyTrait)]`
-/// will generate code to add the trait twice even though `MyTrait` is the same trait.
-///
-/// ```
-/// use trait_map::TraitMapEntry;
-///
-/// trait ExampleTrait {
-///   fn do_something(&self) -> u32;
-///   fn do_another_thing(&mut self);
-/// }
-///
-/// trait ExampleTraitTwo {
-///   fn test_method(&self);
-/// }
-///
-/// #[derive(Debug, TraitMapEntry)]
-/// #[trait_map(ExampleTrait, ExampleTraitTwo)]
-/// #[trait_map(std::fmt::Debug)]
-/// struct DerivedStruct {
-///   // ...
-/// }
-///
-/// impl ExampleTrait for DerivedStruct {
-///   fn do_something(&self) -> u32 { /* Code */ }
-///   fn do_another_thing(&mut self) { /* Code */ }
-/// }
-///
-/// impl ExampleTraitTwo for DerivedStruct{
-///   fn test_method(&self) { /* Code */ }
-/// }
-/// ```
-///
+/// See the [trait_map](https://docs.rs/trait-map/latest/) crate for more details.
 #[proc_macro_derive(TraitMapEntry, attributes(trait_map))]
 pub fn derive_trait_map_entry(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
   let derive_input = parse_macro_input!(input as DeriveInput);
