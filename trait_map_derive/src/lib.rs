@@ -1,7 +1,7 @@
 use ctxt::Ctxt;
 use quote::{quote, quote_spanned};
 use syn::spanned::Spanned;
-use syn::{parse_macro_input, Attribute, DeriveInput, Meta, NestedMeta, Path};
+use syn::{parse_macro_input, parse_quote, Attribute, DeriveInput, GenericParam, Generics, Meta, NestedMeta, Path};
 
 mod ctxt;
 
@@ -11,7 +11,7 @@ pub fn derive_trait_map_entry(input: proc_macro::TokenStream) -> proc_macro::Tok
 
   let name = derive_input.ident;
 
-  let generics = derive_input.generics;
+  let generics = add_trait_bounds(derive_input.generics);
   let (impl_generics, ty_generics, where_clause) = generics.split_for_impl();
 
   let mut ctx = Ctxt::new();
@@ -35,7 +35,7 @@ pub fn derive_trait_map_entry(input: proc_macro::TokenStream) -> proc_macro::Tok
 
   quote! {
     impl #impl_generics trait_map::TraitMapEntry for #name #ty_generics #where_clause {
-      fn on_create<'a>(&mut self, context: Context<'a>) {
+      fn on_create<'a>(&mut self, context: trait_map::Context<'a>) {
         context.downcast::<Self>() #(#functions)* ;
       }
     }
@@ -43,13 +43,26 @@ pub fn derive_trait_map_entry(input: proc_macro::TokenStream) -> proc_macro::Tok
   .into()
 }
 
+// Add a bound `T: 'static` to every type parameter T.
+fn add_trait_bounds(mut generics: Generics) -> Generics {
+  for param in &mut generics.params {
+    if let GenericParam::Type(ref mut type_param) = *param {
+      type_param.bounds.push(parse_quote!('static));
+    }
+  }
+  generics
+}
+
+/// Get all `#[trait_map(...)]` attributes
 fn parse_attributes(ctx: &mut Ctxt, attributes: Vec<Attribute>) -> Vec<NestedMeta> {
   attributes
     .into_iter()
+    // We only want attributes that look like
+    //  #[trait_map(...)]
     .filter(|attr| attr.path.is_ident("trait_map"))
     .map(|attr| match attr.parse_meta() {
       // Valid form:
-      //   #[trait_map(TraitOne, TraitTwo, ...)]
+      //   #[trait_map(TraitOne, some::path::TraitTwo, ...)]
       Ok(Meta::List(meta)) => meta.nested.into_iter().collect::<Vec<_>>(),
 
       // Invalid form:
@@ -68,10 +81,16 @@ fn parse_attributes(ctx: &mut Ctxt, attributes: Vec<Attribute>) -> Vec<NestedMet
     .collect()
 }
 
+/// Parse all attributes that look like:
+///
+/// ```
+/// #[trait_map(TraitOne, some::path::TraitTwo)]
+/// ```
 fn parse_attribute_trait(ctx: &mut Ctxt, attr: NestedMeta) -> Option<Path> {
   match attr {
     // Valid form:
     //   trait_map(TraitOne)
+    //   trait_map(some::path::TraitTwo)
     NestedMeta::Meta(Meta::Path(trait_path)) => Some(trait_path),
 
     // Invalid forms:

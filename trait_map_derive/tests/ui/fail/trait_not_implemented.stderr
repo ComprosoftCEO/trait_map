@@ -1,0 +1,7 @@
+error[E0277]: the trait bound `MyStruct: MyTrait` is not satisfied
+ --> tests/ui/fail/trait_not_implemented.rs:8:13
+  |
+8 | #[trait_map(MyTrait)]
+  |             ^^^^^^^ the trait `MyTrait` is not implemented for `MyStruct`
+  |
+  = note: required for the cast from `MyStruct` to the object type `dyn MyTrait`

@@ -7,5 +7,10 @@ edition = "2021"
 quote = "1.0.23"
 syn = "1.0.107"
 
+[dev-dependencies]
+trybuild = "1.0"
+trait_map = { version = "0.3.0", path = "../trait_map", features = ["derive"] }
+
 [lib]
 proc-macro = true
+doctest = false
