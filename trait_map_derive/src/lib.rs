@@ -74,8 +74,8 @@ pub fn derive_trait_map_entry(input: proc_macro::TokenStream) -> proc_macro::Tok
   {
     if found_traits.len() == 0 {
       proc_macro::Span::call_site()
-        .warning("no traits specified for map")
-        .help("specify one or more traits using #[trait_map(TraitOne, TraitTwo, ...)] attribute")
+        .warning("no traits specified for `TraitMapEntry`")
+        .help("specify one or more traits using `#[trait_map(TraitOne, some::path::TraitTwo, ...)]`")
         .emit();
     }
 
