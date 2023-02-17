@@ -49,6 +49,8 @@
 //! We can specify that we want to allow our struct types to work with the trait map by implementing the [TraitMapEntry] trait:
 //!
 //! ```
+//! use trait_map::{TraitMapEntry, Context};
+//!
 //! impl TraitMapEntry for MyStruct {
 //!   fn on_create<'a>(&mut self, context: Context<'a>) {
 //!     // Must explicitly list which traits to expose
@@ -79,6 +81,8 @@
 //! For example:
 //!
 //! ```
+//! use trait_map::TraitMap;
+//!
 //! fn main() {
 //!   let mut map = TraitMap::new();
 //!   map.add_entry(MyStruct { /* ... */ });
@@ -97,6 +101,39 @@
 //!   }
 //! }
 //! ```
+//!
+//! # Deriving
+//!
+//! If you enable the `derive` feature flag, then you automatically implement the [TraitMapEntry] trait.
+//! You must specify which traits to expose to the map using one or more `#[trait_map(...)]` attributes.
+//! When compiling on nightly, it uses the [`proc_macro_diagnostic`](https://doc.rust-lang.org/beta/unstable-book/library-features/proc-macro-diagnostic.html) feature to emit helpful compiler warnings.
+//!
+//! As a small optimization, duplicate traits will automatically be removed when generating the trait implementation
+//! _(even though calls to [.add_trait()](TypedContext::add_trait) are idempotent)_.
+//! However, macros cannot distinguish between types aliased by path, so doing something like `#[trait_map(MyTrait, some::path::MyTrait)]`
+//! will generate code to add the trait twice even though `MyTrait` is the same trait.
+//!
+//! ```
+//! use trait_map::TraitMapEntry;
+//!
+//! // ...
+//!
+//! #[derive(Debug, TraitMapEntry)]
+//! #[trait_map(ExampleTrait, ExampleTraitTwo)]
+//! #[trait_map(std::fmt::Debug)]
+//! struct DerivedStruct {
+//!   // ...
+//! }
+//!
+//! impl ExampleTrait for DerivedStruct {
+//!   fn do_something(&self) -> u32 { /* Code */ }
+//!   fn do_another_thing(&mut self) { /* Code */ }
+//! }
+//!
+//! impl ExampleTraitTwo for DerivedStruct{
+//!   fn test_method(&self) { /* Code */ }
+//! }
+//! ```
 #![feature(ptr_metadata)]
 #![feature(unsize)]
 
@@ -107,7 +144,14 @@ use std::marker::Unsize;
 use std::mem::transmute;
 use std::ptr::{self, DynMetadata, NonNull, Pointee};
 
+#[cfg(any(feature = "trait_map_derive", test))]
+#[allow(unused_imports)]
+pub use trait_map_derive::TraitMapEntry;
+
 /// Rust type that can be stored inside of a [TraitMap].
+///
+/// If the `derive` feature flag is enabled, you can derive this trait on types.
+/// See the [crate documentation](crate).
 pub trait TraitMapEntry: 'static {
   /// Called when the type is first added to the [TraitMap].
   /// This should be use to specify which implemented traits are exposed to the map.
@@ -171,7 +215,7 @@ pub struct TraitMap {
   concrete_types: HashMap<EntryID, TypeId>,
 }
 
-/// Stores type information about an entry inside of a [TraitMap]
+/// Stores type information about an entry inside of a [TraitMap].
 ///
 /// Must be cast to a [TypedContext] using the [`.downcast()`](Context::downcast) or [`.try_downcast()`](Context::try_downcast)
 /// methods for adding or removing traits from the map.
@@ -209,7 +253,7 @@ impl TraitMap {
     // Save the concrete type for downcasting later
     self.concrete_types.insert(entry_id, TypeId::of::<Entry>());
 
-    // All entities get the dyn entity trait by default
+    // All entries get the dyn entry trait by default
     //  This stores the unique ownership of the object
     let mut context = TypedContext {
       entry_id,
@@ -289,12 +333,12 @@ impl TraitMap {
 
   /// Get the list of all entries as an immutable reference
   pub fn all_entries(&self) -> HashMap<EntryID, &dyn TraitMapEntry> {
-    self.get_entities()
+    self.get_entries()
   }
 
   /// Get the list of all entries as a mutable reference
   pub fn all_entries_mut(&mut self) -> HashMap<EntryID, &mut dyn TraitMapEntry> {
-    self.get_entities_mut()
+    self.get_entries_mut()
   }
 
   /// Returns all entries that are registered with a specific trait.
@@ -307,7 +351,7 @@ impl TraitMap {
   ///   entry.trait_method(1, "hello");
   /// }
   /// ```
-  pub fn get_entities<Trait>(&self) -> HashMap<EntryID, &Trait>
+  pub fn get_entries<Trait>(&self) -> HashMap<EntryID, &Trait>
   where
     // Ensure that Trait is a valid "dyn Trait" object
     Trait: ?Sized + Pointee<Metadata = DynMetadata<Trait>> + 'static,
@@ -335,7 +379,7 @@ impl TraitMap {
   ///   entry.trait_method_mut("hello");
   /// }
   /// ```
-  pub fn get_entities_mut<Trait>(&mut self) -> HashMap<EntryID, &mut Trait>
+  pub fn get_entries_mut<Trait>(&mut self) -> HashMap<EntryID, &mut Trait>
   where
     // Ensure that Trait is a valid "dyn Trait" object
     Trait: ?Sized + Pointee<Metadata = DynMetadata<Trait>> + 'static,
@@ -940,7 +984,7 @@ mod test {
     assert_eq!(map.all_entries().len(), 2);
 
     // Test the first trait
-    let entries = map.get_entities_mut::<dyn TraitOne>();
+    let entries = map.get_entries_mut::<dyn TraitOne>();
     assert_eq!(entries.len(), 1);
     for (entry_id, entry) in entries.into_iter() {
       assert_eq!(entry_id, entry_one_id);
@@ -950,7 +994,7 @@ mod test {
     }
 
     // Test the second trait
-    let entries = map.get_entities::<dyn TraitTwo>();
+    let entries = map.get_entries::<dyn TraitTwo>();
     let entry_one = entries.get(&entry_one_id);
     let entry_two = entries.get(&entry_two_id);
     assert_eq!(entries.len(), 2);
@@ -969,13 +1013,13 @@ mod test {
     }));
     let entry_id = map.add_entry(entry);
 
-    assert_eq!(map.get_entities::<dyn TraitOne>().len(), 1);
-    assert_eq!(map.get_entities::<dyn TraitTwo>().len(), 1);
+    assert_eq!(map.get_entries::<dyn TraitOne>().len(), 1);
+    assert_eq!(map.get_entries::<dyn TraitTwo>().len(), 1);
 
     map.update_entry(entry_id);
 
-    assert_eq!(map.get_entities::<dyn TraitOne>().len(), 0);
-    assert_eq!(map.get_entities::<dyn TraitTwo>().len(), 1);
+    assert_eq!(map.get_entries::<dyn TraitOne>().len(), 0);
+    assert_eq!(map.get_entries::<dyn TraitTwo>().len(), 1);
   }
 
   #[test]
@@ -985,21 +1029,21 @@ mod test {
     let entry_two_id = map.add_entry(TwoOnly::new(20.0));
     let entry_three_id = map.add_entry(TwoOnly::new(30.0));
 
-    assert_eq!(map.get_entities::<dyn TraitTwo>().len(), 3);
+    assert_eq!(map.get_entries::<dyn TraitTwo>().len(), 3);
     assert!(map.get_entry::<dyn TraitTwo>(entry_one_id).is_some());
     assert!(map.get_entry::<dyn TraitTwo>(entry_two_id).is_some());
     assert!(map.get_entry::<dyn TraitTwo>(entry_three_id).is_some());
 
     map.remove_entry(entry_two_id);
 
-    assert_eq!(map.get_entities::<dyn TraitTwo>().len(), 2);
+    assert_eq!(map.get_entries::<dyn TraitTwo>().len(), 2);
     assert!(map.get_entry::<dyn TraitTwo>(entry_one_id).is_some());
     assert!(map.get_entry::<dyn TraitTwo>(entry_two_id).is_none());
     assert!(map.get_entry::<dyn TraitTwo>(entry_three_id).is_some());
 
     let entry_four_id = map.add_entry(TwoOnly::new(40.0));
 
-    assert_eq!(map.get_entities::<dyn TraitTwo>().len(), 3);
+    assert_eq!(map.get_entries::<dyn TraitTwo>().len(), 3);
     assert!(map.get_entry::<dyn TraitTwo>(entry_one_id).is_some());
     assert!(map.get_entry::<dyn TraitTwo>(entry_two_id).is_none());
     assert!(map.get_entry::<dyn TraitTwo>(entry_three_id).is_some());
@@ -1073,13 +1117,13 @@ mod test {
     map.add_entry(TwoOnly::new(1.5));
 
     assert_eq!(map.all_entries().len(), 2);
-    assert_eq!(map.get_entities::<dyn TraitOne>().len(), 1);
-    assert_eq!(map.get_entities::<dyn TraitTwo>().len(), 2);
+    assert_eq!(map.get_entries::<dyn TraitOne>().len(), 1);
+    assert_eq!(map.get_entries::<dyn TraitTwo>().len(), 2);
 
     map.update_entry(entry_id);
 
     assert_eq!(map.all_entries().len(), 2);
-    assert_eq!(map.get_entities::<dyn TraitOne>().len(), 0);
-    assert_eq!(map.get_entities::<dyn TraitTwo>().len(), 2);
+    assert_eq!(map.get_entries::<dyn TraitOne>().len(), 0);
+    assert_eq!(map.get_entries::<dyn TraitTwo>().len(), 2);
   }
 }
