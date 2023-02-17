@@ -11,7 +11,7 @@
 use std::collections::HashSet;
 
 use ctxt::Ctxt;
-use quote::{quote, quote_spanned};
+use quote::{quote, quote_spanned, ToTokens};
 use syn::spanned::Spanned;
 use syn::{parse_macro_input, parse_quote, Attribute, DeriveInput, GenericParam, Generics, Meta, NestedMeta, Path};
 
@@ -80,9 +80,10 @@ pub fn derive_trait_map_entry(input: proc_macro::TokenStream) -> proc_macro::Tok
     }
 
     for t in duplicate_traits {
+      let path_str: String = t.to_token_stream().into_iter().map(|t| format!("{}", t)).collect();
       t.span()
         .unwrap()
-        .warning("duplicate trait specified")
+        .warning(format!("duplicate trait `{}`", path_str))
         .note("including the same trait multiple times is a no-op")
         .emit();
     }

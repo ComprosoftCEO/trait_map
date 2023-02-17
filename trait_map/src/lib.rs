@@ -144,7 +144,7 @@ use std::marker::Unsize;
 use std::mem::transmute;
 use std::ptr::{self, DynMetadata, NonNull, Pointee};
 
-#[cfg(any(feature = "trait-map-derive", test))]
+#[cfg(feature = "trait-map-derive")]
 #[allow(unused_imports)]
 pub use trait_map_derive::TraitMapEntry;
 
