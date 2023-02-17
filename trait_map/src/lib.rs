@@ -49,6 +49,8 @@
 //! We can specify that we want to allow our struct types to work with the trait map by implementing the [TraitMapEntry] trait:
 //!
 //! ```
+//! use trait_map::{TraitMapEntry, Context};
+//!
 //! impl TraitMapEntry for MyStruct {
 //!   fn on_create<'a>(&mut self, context: Context<'a>) {
 //!     // Must explicitly list which traits to expose
@@ -79,6 +81,8 @@
 //! For example:
 //!
 //! ```
+//! use trait_map::TraitMap;
+//!
 //! fn main() {
 //!   let mut map = TraitMap::new();
 //!   map.add_entry(MyStruct { /* ... */ });
@@ -97,6 +101,39 @@
 //!   }
 //! }
 //! ```
+//!
+//! # Deriving
+//!
+//! If you enable the `derive` feature flag, then you automatically implement the [TraitMapEntry] trait.
+//! You must specify which traits to expose to the map using one or more `#[trait_map(...)]` attributes.
+//! When compiling on nightly, it uses the [`proc_macro_diagnostic`](https://doc.rust-lang.org/beta/unstable-book/library-features/proc-macro-diagnostic.html) feature to emit helpful compiler warnings.
+//!
+//! As a small optimization, duplicate traits will automatically be removed when generating the trait implementation
+//! _(even though calls to [.add_trait()](TypedContext::add_trait) are idempotent)_.
+//! However, macros cannot distinguish between types aliased by path, so doing something like `#[trait_map(MyTrait, some::path::MyTrait)]`
+//! will generate code to add the trait twice even though `MyTrait` is the same trait.
+//!
+//! ```
+//! use trait_map::TraitMapEntry;
+//!
+//! // ...
+//!
+//! #[derive(Debug, TraitMapEntry)]
+//! #[trait_map(ExampleTrait, ExampleTraitTwo)]
+//! #[trait_map(std::fmt::Debug)]
+//! struct DerivedStruct {
+//!   // ...
+//! }
+//!
+//! impl ExampleTrait for DerivedStruct {
+//!   fn do_something(&self) -> u32 { /* Code */ }
+//!   fn do_another_thing(&mut self) { /* Code */ }
+//! }
+//!
+//! impl ExampleTraitTwo for DerivedStruct{
+//!   fn test_method(&self) { /* Code */ }
+//! }
+//! ```
 #![feature(ptr_metadata)]
 #![feature(unsize)]
 
@@ -112,6 +149,8 @@ use std::ptr::{self, DynMetadata, NonNull, Pointee};
 pub use trait_map_derive::TraitMapEntry;
 
 /// Rust type that can be stored inside of a [TraitMap].
+///
+/// If the `derive` feature flag is enabled, you can derive this trait
 pub trait TraitMapEntry: 'static {
   /// Called when the type is first added to the [TraitMap].
   /// This should be use to specify which implemented traits are exposed to the map.
@@ -175,7 +214,7 @@ pub struct TraitMap {
   concrete_types: HashMap<EntryID, TypeId>,
 }
 
-/// Stores type information about an entry inside of a [TraitMap]
+/// Stores type information about an entry inside of a [TraitMap].
 ///
 /// Must be cast to a [TypedContext] using the [`.downcast()`](Context::downcast) or [`.try_downcast()`](Context::try_downcast)
 /// methods for adding or removing traits from the map.

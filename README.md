@@ -95,7 +95,7 @@ fn main() {
 
 ## Deriving
 
-If you enable the `derive` feature, you can automatically derive `TraitMapEntry`.
+If you enable the `derive` feature flag, you can automatically derive `TraitMapEntry`.
 You need to use one or more `#[trait_map(...)]` macros to specify which traits to register with the TraitMap.
 It uses the [`proc_macro_diagnostic`](https://doc.rust-lang.org/beta/unstable-book/library-features/proc-macro-diagnostic.html) feature to emit helpful warnings when compiling on nightly.
 
@@ -104,9 +104,10 @@ use trait_map::TraitMapEntry;
 
 // ...
 
-#[derive(TraitMapEntry)]
+#[derive(Debug, TraitMapEntry)]
 #[trait_map(ExampleTrait, ExampleTraitTwo)]
-struct MyStruct {
+#[trait_map(std::fmt::Debug)]
+struct DerivedStruct {
   // ...
 }
 

@@ -1,3 +1,5 @@
+use std::fmt::Debug;
+
 use trait_map::{TraitMap, TraitMapEntry};
 
 mod nested_mod {
@@ -6,8 +8,8 @@ mod nested_mod {
   }
 }
 
-#[derive(TraitMapEntry)]
-#[trait_map(nested_mod::MyTrait)]
+#[derive(TraitMapEntry, Debug)]
+#[trait_map(nested_mod::MyTrait, Debug)]
 struct MyStruct {
   value: u32,
 }

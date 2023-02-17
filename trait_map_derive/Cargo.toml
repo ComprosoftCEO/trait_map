@@ -1,7 +1,15 @@
 [package]
 name = "trait_map_derive"
+description = "Derive the TraitMapEntry trait for trait_map crate"
 version = "0.1.0"
 edition = "2021"
+authors = ["Bryan McClain <bamcclain10@gmail.com>"]
+readme = "README.md"
+repository = "https://github.com/ComprosoftCEO/trait_map"
+documentation = "https://docs.rs/trait_map_derive"
+license = "GPL-3.0-or-later"
+keywords = ["map", "dynamic", "trait", "downcast"]
+categories = ["data-structures"]
 
 [dependencies]
 quote = "1.0.23"
