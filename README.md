@@ -46,6 +46,8 @@ impl ExampleTraitTwo for AnotherStruct{
 We can use `TraitMap` to have iterators over the `dyn Trait` types as follows:
 
 ```rust
+use trait_map::{TraitMap, TraitMapEntry, Context};
+
 impl TraitMapEntry for MyStruct {
   fn on_create<'a>(&mut self, context: Context<'a>) {
     // Must explicitly list which traits to expose
@@ -88,5 +90,32 @@ fn main() {
   for (entry_id, entry) in map.get_entries::<dyn ExampleTraitTwo>() {
     entry.test_method();
   }
+}
+```
+
+## Deriving
+
+If you enable the `derive` feature, you can automatically derive `TraitMapEntry`.
+You need to use one or more `#[trait_map(...)]` macros to specify which traits to register with the TraitMap.
+It uses the [`proc_macro_diagnostic`](https://doc.rust-lang.org/beta/unstable-book/library-features/proc-macro-diagnostic.html) feature to emit helpful warnings when compiling on nightly.
+
+```rust
+use trait_map::TraitMapEntry;
+
+// ...
+
+#[derive(TraitMapEntry)]
+#[trait_map(ExampleTrait, ExampleTraitTwo)]
+struct MyStruct {
+  // ...
+}
+
+impl ExampleTrait for DerivedStruct {
+  fn do_something(&self) -> u32 { /* Code */ }
+  fn do_another_thing(&mut self) { /* Code */ }
+}
+
+impl ExampleTraitTwo for DerivedStruct{
+  fn test_method(&self) { /* Code */ }
 }
 ```
